@@ -29,18 +29,32 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
     setCameraError('');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 480, height: 480, facingMode: 'user' },
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 640 },
+          facingMode: 'user'
+        },
         audio: false
       });
       setCameraStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
     } catch (err) {
       console.error('Camera access failed:', err);
       setCameraError('Kameraya erişilemedi. Lütfen tarayıcınızın adres çubuğundaki kilit simgesinden kamera izni verdiğinizden emin olun.');
     }
   };
+
+  // Bind camera stream to video element when it mounts/remounts (e.g. after step changes)
+  useEffect(() => {
+    if (videoRef.current && cameraStream) {
+      try {
+        videoRef.current.srcObject = cameraStream;
+        // Explicitly play video to ensure playback starts on all devices
+        videoRef.current.play().catch(e => console.error("Webcam play failed:", e));
+      } catch (err) {
+        console.error("Failed to bind stream to video element:", err);
+      }
+    }
+  }, [cameraStream, step]);
 
   const stopCamera = () => {
     if (cameraStream) {
@@ -50,27 +64,55 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current) return;
+    if (!videoRef.current) {
+      console.warn("capturePhoto called but videoRef.current is null");
+      return;
+    }
     
-    // Shutter flash visual feedback
-    setShutterFlash(true);
-    setTimeout(() => setShutterFlash(false), 300);
+    try {
+      const video = videoRef.current;
+      
+      // Check readyState
+      if (video.readyState < 2) {
+        console.warn("Video readyState is not ready:", video.readyState);
+      }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = videoRef.current.videoWidth || 480;
-    canvas.height = videoRef.current.videoHeight || 480;
-    const ctx = canvas.getContext('2d');
-    
-    // Mirror horizontal flip
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-    
-    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    
-    stopCamera();
-    setSelfie(dataUrl);
-    setStep(2); // Proceed to step 2 KVKK consent
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
+      
+      // Fallback width/height if dimensions are 0 (e.g. metadata not fully loaded but video is streaming)
+      const canvasWidth = videoWidth || 640;
+      const canvasHeight = videoHeight || 480;
+
+      // Shutter flash visual feedback
+      setShutterFlash(true);
+      setTimeout(() => setShutterFlash(false), 300);
+
+      const canvas = document.createElement('canvas');
+      // We crop the center square to match the visual preview
+      const size = Math.min(canvasWidth, canvasHeight);
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      
+      // Mirror horizontal flip
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      
+      // Calculate center crop start coordinates
+      const sx = (canvasWidth - size) / 2;
+      const sy = (canvasHeight - size) / 2;
+      
+      ctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      
+      stopCamera();
+      setSelfie(dataUrl);
+      setStep(2); // Proceed to step 2 KVKK consent
+    } catch (err) {
+      console.error("Fotoğraf çekilirken hata oluştu:", err);
+      alert("Fotoğraf çekilirken bir hata oluştu. Lütfen kameranın tamamen yüklendiğinden emin olup tekrar deneyin. Detay: " + err.message);
+    }
   };
 
   const handleKvkkAccept = () => {
@@ -154,6 +196,11 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                         playsInline
                         muted
                         className="h-full w-full object-cover scale-x-[-1]"
+                        onLoadedMetadata={() => {
+                          if (videoRef.current) {
+                            videoRef.current.play().catch(e => console.error("Webcam play in onLoadedMetadata failed:", e));
+                          }
+                        }}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
