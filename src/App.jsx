@@ -185,17 +185,23 @@ export default function App() {
     if (!faceApi.ready) return;
 
     try {
-      setSearchSelfie(selfieDataUrl);
+      // Extract faces and handle automatic rotation
+      const result = await faceApi.extractFaces(selfieDataUrl, { autoRotate: true });
+      const { faces, rotatedDataUrl } = result;
 
-      const targetFaces = await faceApi.extractFaces(selfieDataUrl);
+      // If a rotated/corrected version was generated, use it for results display
+      const finalSelfie = rotatedDataUrl || selfieDataUrl;
+      setSearchSelfie(finalSelfie);
 
-      if (targetFaces.length === 0) {
+      if (faces.length === 0) {
         setSearchResults([]);
+        alert("Fotoğrafta yüz algılanamadı. Lütfen kameraya düz bakarak daha net bir fotoğraf çekmeyi deneyin.");
         return;
       }
 
-      const targetDescriptor = targetFaces[0].descriptor;
-      const matchedPhotos = faceApi.matchFaces(targetDescriptor, photos, 0.55);
+      const targetDescriptor = faces[0].descriptor;
+      // Increased threshold to 0.60 for better matches (0.55 is too strict under varied lighting/angles)
+      const matchedPhotos = faceApi.matchFaces(targetDescriptor, photos, 0.60);
 
       setSearchResults(matchedPhotos);
     } catch (err) {

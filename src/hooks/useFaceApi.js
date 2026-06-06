@@ -8,6 +8,31 @@ const MODEL_URL = '/models/';
 let modelsLoadedPromise = null;
 let globalFaceApi = faceapi;
 
+// Helper to rotate an image using canvas
+const rotateImage = (imgElement, degrees) => {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    const angle = (degrees * Math.PI) / 180;
+    const is90or270 = degrees === 90 || degrees === 270;
+    
+    const w = imgElement.naturalWidth || imgElement.width || 640;
+    const h = imgElement.naturalHeight || imgElement.height || 480;
+    
+    canvas.width = is90or270 ? h : w;
+    canvas.height = is90or270 ? w : h;
+    
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.rotate(angle);
+    ctx.drawImage(imgElement, -w / 2, -h / 2);
+    
+    const rotatedImg = new Image();
+    rotatedImg.onload = () => resolve(rotatedImg);
+    rotatedImg.src = canvas.toDataURL('image/jpeg', 0.9);
+  });
+};
+
 export function useFaceApi() {
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
@@ -68,9 +93,11 @@ export function useFaceApi() {
   /**
    * Process an image (URL or HTMLImageElement) and extract face descriptors and bounding boxes.
    * @param {string|HTMLImageElement|HTMLCanvasElement} imageSource - The source image
-   * @returns {Promise<Array<{descriptor: Array<number>, box: {x: number, y: number, width: number, height: number}}>>}
+   * @param {object} options - Configuration options like autoRotate
+   * @returns {Promise<Array|object>}
    */
-  const extractFaces = useCallback(async (imageSource) => {
+  const extractFaces = useCallback(async (imageSource, options = {}) => {
+    const { autoRotate = false } = options;
     if (!ready) {
       throw new Error('Modeller henüz yüklenmedi.');
     }
@@ -95,13 +122,38 @@ export function useFaceApi() {
       }
 
       // Detect all faces, find landmarks, and extract descriptors
-      const detections = await faceapi
+      let detections = await faceapi
         .detectAllFaces(imgElement, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
         .withFaceLandmarks()
         .withFaceDescriptors();
 
-      // Format results for storage (serialize Float32Array to normal Array)
-      return detections.map((det) => ({
+      let rotatedDataUrl = null;
+
+      // If autoRotate is true and no faces are detected, try rotating the image
+      if (detections.length === 0 && autoRotate && isTempImage) {
+        console.log("No face detected in original orientation. Trying rotated orientations...");
+        const rotations = [90, 270, 180]; // Try 90 and 270 first (common orientation issues)
+        for (const degrees of rotations) {
+          try {
+            const rotatedImg = await rotateImage(imgElement, degrees);
+            const rotatedDetections = await faceapi
+              .detectAllFaces(rotatedImg, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
+              .withFaceLandmarks()
+              .withFaceDescriptors();
+
+            if (rotatedDetections.length > 0) {
+              console.log(`Face detected successfully after rotating ${degrees} degrees!`);
+              detections = rotatedDetections;
+              rotatedDataUrl = rotatedImg.src;
+              break;
+            }
+          } catch (err) {
+            console.error(`Failed to process rotation by ${degrees} degrees:`, err);
+          }
+        }
+      }
+
+      const formatted = detections.map((det) => ({
         descriptor: Array.from(det.descriptor),
         box: {
           x: det.detection.box.x,
@@ -110,6 +162,12 @@ export function useFaceApi() {
           height: det.detection.box.height,
         },
       }));
+
+      if (autoRotate) {
+        return { faces: formatted, rotatedDataUrl };
+      } else {
+        return formatted;
+      }
     } catch (err) {
       console.error('Face extraction failed:', err);
       throw err;

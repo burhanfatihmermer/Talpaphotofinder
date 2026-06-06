@@ -10,6 +10,7 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
   const [cameraError, setCameraError] = useState('');
   const [shutterFlash, setShutterFlash] = useState(false);
   const [isKvkkModalOpen, setIsKvkkModalOpen] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
 
   const videoRef = useRef(null);
 
@@ -27,6 +28,7 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
 
   const startCamera = async () => {
     setCameraError('');
+    setVideoReady(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -61,6 +63,7 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
       cameraStream.getTracks().forEach((track) => track.stop());
       setCameraStream(null);
     }
+    setVideoReady(false);
   };
 
   const capturePhoto = () => {
@@ -95,9 +98,8 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
       canvas.height = size;
       const ctx = canvas.getContext('2d');
       
-      // Mirror horizontal flip
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
+      // Horizontal mirror is NOT applied to canvas drawing so that the captured selfie matches
+      // the real orientation (un-mirrored) of the event photos for proper face recognition matching.
       
       // Calculate center crop start coordinates
       const sx = (canvasWidth - size) / 2;
@@ -125,6 +127,7 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
 
   const resetToStep1 = () => {
     setSelfie(null);
+    setVideoReady(false);
     setStep(1);
   };
 
@@ -197,6 +200,7 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                         muted
                         className="h-full w-full object-cover scale-x-[-1]"
                         onLoadedMetadata={() => {
+                          setVideoReady(true);
                           if (videoRef.current) {
                             videoRef.current.play().catch(e => console.error("Webcam play in onLoadedMetadata failed:", e));
                           }
@@ -214,9 +218,9 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                   <div className="flex flex-col items-center gap-2">
                     <button
                       onClick={capturePhoto}
-                      disabled={!cameraStream}
+                      disabled={!cameraStream || !videoReady}
                       className={`btn btn-primary mt-4 px-5 py-2 rounded-xl text-xs ${
-                        !cameraStream ? 'btn-disabled' : ''
+                        (!cameraStream || !videoReady) ? 'btn-disabled' : ''
                       }`}
                     >
                       <Camera size={14} />
