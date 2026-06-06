@@ -51,9 +51,28 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
       try {
         videoRef.current.srcObject = cameraStream;
         // Explicitly play video to ensure playback starts on all devices
-        videoRef.current.play().catch(e => console.error("Webcam play failed:", e));
+        videoRef.current.play()
+          .then(() => {
+            let attempts = 0;
+            const checkSize = () => {
+              if (videoRef.current && videoRef.current.videoWidth > 0) {
+                setVideoReady(true);
+              } else if (attempts < 10) {
+                attempts++;
+                setTimeout(checkSize, 100);
+              } else {
+                setVideoReady(true);
+              }
+            };
+            checkSize();
+          })
+          .catch(e => {
+            console.error("Webcam play failed:", e);
+            setVideoReady(true); // Fallback so button is never permanently locked
+          });
       } catch (err) {
         console.error("Failed to bind stream to video element:", err);
+        setVideoReady(true); // Fallback
       }
     }
   }, [cameraStream, step]);
@@ -212,12 +231,10 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                         muted
                         className="absolute inset-0 h-full w-full object-cover"
                         style={{ transform: 'scale(-1.6, 1.6)', transformOrigin: 'center' }}
-                        onLoadedMetadata={() => {
-                          setVideoReady(true);
-                          if (videoRef.current) {
-                            videoRef.current.play().catch(e => console.error("Webcam play in onLoadedMetadata failed:", e));
-                          }
-                        }}
+                        onLoadedMetadata={() => setVideoReady(true)}
+                        onCanPlay={() => setVideoReady(true)}
+                        onPlay={() => setVideoReady(true)}
+                        onPlaying={() => setVideoReady(true)}
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-[var(--text-muted)]">
