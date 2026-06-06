@@ -197,7 +197,12 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                   {/* Camera viewport (SQUARE & CENTERED - VERY COMPACT) */}
                   <div 
                     className="relative h-36 w-36 overflow-hidden rounded-2xl border-4 border-white/10 bg-black shadow-inner md:h-40 md:w-40"
-                    style={{ isolation: 'isolate' }}
+                    style={{ 
+                      isolation: 'isolate',
+                      WebkitMaskImage: '-webkit-radial-gradient(white, black)',
+                      transform: 'translate3d(0, 0, 0)',
+                      WebkitTransform: 'translate3d(0, 0, 0)'
+                    }}
                   >
                     {cameraStream ? (
                       <video
@@ -205,7 +210,7 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                         autoPlay
                         playsInline
                         muted
-                        className="h-full w-full object-cover"
+                        className="absolute inset-0 h-full w-full object-cover"
                         style={{ transform: 'scale(-1.6, 1.6)', transformOrigin: 'center' }}
                         onLoadedMetadata={() => {
                           setVideoReady(true);
