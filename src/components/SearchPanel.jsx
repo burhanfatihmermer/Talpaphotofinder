@@ -92,20 +92,24 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
       setTimeout(() => setShutterFlash(false), 300);
 
       const canvas = document.createElement('canvas');
-      // We crop the center square to match the visual preview
-      const size = Math.min(canvasWidth, canvasHeight);
-      canvas.width = size;
-      canvas.height = size;
+      
+      // Crop a tighter center square (1.6x zoom) to focus on the user's face and reduce wide-angle distortion
+      const zoomFactor = 1.6;
+      const baseSize = Math.min(canvasWidth, canvasHeight);
+      const cropSize = baseSize / zoomFactor;
+      
+      canvas.width = cropSize;
+      canvas.height = cropSize;
       const ctx = canvas.getContext('2d');
       
       // Horizontal mirror is NOT applied to canvas drawing so that the captured selfie matches
       // the real orientation (un-mirrored) of the event photos for proper face recognition matching.
       
-      // Calculate center crop start coordinates
-      const sx = (canvasWidth - size) / 2;
-      const sy = (canvasHeight - size) / 2;
+      // Calculate center crop start coordinates for the zoomed-in region
+      const sx = (canvasWidth - cropSize) / 2;
+      const sy = (canvasHeight - cropSize) / 2;
       
-      ctx.drawImage(video, sx, sy, size, size, 0, 0, size, size);
+      ctx.drawImage(video, sx, sy, cropSize, cropSize, 0, 0, cropSize, cropSize);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
       
       stopCamera();
@@ -191,14 +195,18 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                   {shutterFlash && <div className="shutter-flash rounded-2xl" />}
                   
                   {/* Camera viewport (SQUARE & CENTERED - VERY COMPACT) */}
-                  <div className="relative h-36 w-36 overflow-hidden rounded-2xl border-4 border-white/10 bg-black shadow-inner md:h-40 md:w-40">
+                  <div 
+                    className="relative h-36 w-36 overflow-hidden rounded-2xl border-4 border-white/10 bg-black shadow-inner md:h-40 md:w-40"
+                    style={{ isolation: 'isolate' }}
+                  >
                     {cameraStream ? (
                       <video
                         ref={videoRef}
                         autoPlay
                         playsInline
                         muted
-                        className="h-full w-full object-cover scale-x-[-1]"
+                        className="h-full w-full object-cover"
+                        style={{ transform: 'scale(-1.6, 1.6)', transformOrigin: 'center' }}
                         onLoadedMetadata={() => {
                           setVideoReady(true);
                           if (videoRef.current) {
