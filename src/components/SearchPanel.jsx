@@ -215,8 +215,15 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                   
                   {/* Camera viewport (SQUARE & CENTERED - VERY COMPACT) */}
                   <div 
-                    className="relative h-36 w-36 overflow-hidden rounded-2xl border-4 border-white/10 bg-black shadow-inner md:h-40 md:w-40"
+                    className="overflow-hidden bg-black"
                     style={{ 
+                      position: 'relative',
+                      width: '144px',
+                      height: '144px',
+                      borderRadius: '1rem',
+                      borderWidth: '4px',
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                      boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06)',
                       isolation: 'isolate',
                       WebkitMaskImage: '-webkit-radial-gradient(white, black)',
                       transform: 'translate3d(0, 0, 0)',
@@ -229,8 +236,15 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                         autoPlay
                         playsInline
                         muted
-                        className="absolute inset-0 h-full w-full object-cover"
-                        style={{ transform: 'scale(-1.6, 1.6)', transformOrigin: 'center' }}
+                        className="absolute object-cover"
+                        style={{
+                          width: '160%',
+                          height: '160%',
+                          top: '-30%',
+                          left: '-30%',
+                          transform: 'scaleX(-1)',
+                          transformOrigin: 'center'
+                        }}
                         onLoadedMetadata={() => setVideoReady(true)}
                         onCanPlay={() => setVideoReady(true)}
                         onPlay={() => setVideoReady(true)}
