@@ -210,7 +210,7 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                   </button>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center space-y-4 py-2 relative">
+                <div className="flex flex-col items-center justify-center space-y-4 py-2 relative w-full">
                   {/* Shutter Flash Animation Overlay */}
                   {shutterFlash && <div className="shutter-flash rounded-2xl" style={{ zIndex: 40 }} />}
                   
@@ -245,7 +245,8 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                           top: '-30%',
                           left: '-30%',
                           transform: 'scaleX(-1)',
-                          transformOrigin: 'center'
+                          transformOrigin: 'center',
+                          pointerEvents: 'none' // Crucial: prevents the video from capturing clicks and pausing/playing on mobile tap
                         }}
                         onLoadedMetadata={() => setVideoReady(true)}
                         onCanPlay={() => setVideoReady(true)}
@@ -261,15 +262,29 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                     <div className="absolute inset-3 rounded-xl border border-dashed border-white/25 pointer-events-none" />
                   </div>
 
-                  {/* Fotoğraf Çek Butonu - En yüksek z-index ile kameranın hemen altında yer alır ve disabled durumunda videoReady'ye takılmaz */}
+                  {/* KVKK Bilgilendirme Metni - Yerleşim olarak kamera ile buton arasına alındı, butonu kameradan uzaklaştırır */}
+                  <div className="w-full rounded-xl border border-white/5 bg-white/5 p-3 text-left text-[10px] space-y-1.5 text-[var(--text-secondary)]">
+                    <p className="font-semibold text-white">Biyometrik Veri Aydınlatması:</p>
+                    <p className="leading-relaxed">
+                      Çektiğiniz fotoğraf tamamen yerel olarak işlenir, sunucuya aktarılmaz. Arama için onayınız gereklidir.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsKvkkModalOpen(true)}
+                      className="font-bold text-[var(--color-primary)] hover:underline inline-block mt-0.5 bg-transparent border-none p-0 cursor-pointer text-[10px]"
+                    >
+                      Detaylı Aydınlatma Metni &raquo;
+                    </button>
+                  </div>
+
+                  {/* Fotoğraf Çek Butonu - KVKK metninin en altına alındı, kameradan tamamen izole edildi */}
                   <button
                     onClick={capturePhoto}
                     disabled={!cameraStream}
-                    className={`btn btn-primary px-6 py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 ${
+                    className={`btn btn-primary px-6 py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 w-full ${
                       !cameraStream ? 'btn-disabled' : ''
                     }`}
                     style={{
-                      width: '144px',
                       zIndex: 50
                     }}
                   >
@@ -282,7 +297,7 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
           </div>
         )}
 
-        {/* STEP 2: KVKK INLINE DISCLOSURE AND CHECKBOX */}
+        {/* STEP 2: KVKK CONSENT CONFIRMATION */}
         {step === 2 && (
           <div className="min-h-[180px] flex flex-col justify-center animate-slide-up">
             <div className="flex flex-col items-center justify-center space-y-4 max-w-xs mx-auto text-center">
@@ -295,11 +310,11 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                 </div>
               </div>
 
-              {/* Inline mini disclosure text for readability */}
+              {/* Inline mini disclosure text for step 2 */}
               <div className="rounded-xl border border-white/5 bg-white/5 p-3 text-left text-[10px] space-y-1.5 text-[var(--text-secondary)]">
-                <p className="font-semibold text-white">Biyometrik Veri Aydınlatması:</p>
+                <p className="font-semibold text-white">Biyometrik Rıza Onayı:</p>
                 <p className="leading-relaxed">
-                  Çektiğiniz fotoğraf tamamen yerel olarak işlenir, sunucuya aktarılmaz. Arama için onayınız gereklidir.
+                  Yukarıdaki fotoğrafınız yerel tarayıcınızda işlenip albümle karşılaştırılacaktır. Arama işlemini başlatın.
                 </p>
                 <button
                   type="button"
