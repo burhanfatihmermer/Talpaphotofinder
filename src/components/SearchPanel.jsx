@@ -12,7 +12,40 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
   const [isKvkkModalOpen, setIsKvkkModalOpen] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
 
-  const videoRef = useRef(null);
+  const videoNodeRef = useRef(null);
+
+  // Callback Ref: executes instantly when the <video> element mounts in the DOM,
+  // preventing React lifecycle delay / useRef race conditions when binding webcam streams.
+  const videoRef = React.useCallback((node) => {
+    videoNodeRef.current = node;
+    if (node && cameraStream) {
+      try {
+        node.srcObject = cameraStream;
+        node.play()
+          .then(() => {
+            let attempts = 0;
+            const checkSize = () => {
+              if (node && node.videoWidth > 0) {
+                setVideoReady(true);
+              } else if (attempts < 10) {
+                attempts++;
+                setTimeout(checkSize, 100);
+              } else {
+                setVideoReady(true);
+              }
+            };
+            checkSize();
+          })
+          .catch(e => {
+            console.error("Webcam play failed in callback ref:", e);
+            setVideoReady(true); // Fallback so user can always try to click
+          });
+      } catch (err) {
+        console.error("Failed to bind stream to video element in callback ref:", err);
+        setVideoReady(true); // Fallback
+      }
+    }
+  }, [cameraStream]);
 
   // Initialize camera in Step 1, stop in other steps
   useEffect(() => {
@@ -45,38 +78,6 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
     }
   };
 
-  // Bind camera stream to video element when it mounts/remounts (e.g. after step changes)
-  useEffect(() => {
-    if (videoRef.current && cameraStream) {
-      try {
-        videoRef.current.srcObject = cameraStream;
-        // Explicitly play video to ensure playback starts on all devices
-        videoRef.current.play()
-          .then(() => {
-            let attempts = 0;
-            const checkSize = () => {
-              if (videoRef.current && videoRef.current.videoWidth > 0) {
-                setVideoReady(true);
-              } else if (attempts < 10) {
-                attempts++;
-                setTimeout(checkSize, 100);
-              } else {
-                setVideoReady(true);
-              }
-            };
-            checkSize();
-          })
-          .catch(e => {
-            console.error("Webcam play failed:", e);
-            setVideoReady(true); // Fallback so button is never permanently locked
-          });
-      } catch (err) {
-        console.error("Failed to bind stream to video element:", err);
-        setVideoReady(true); // Fallback
-      }
-    }
-  }, [cameraStream, step]);
-
   const stopCamera = () => {
     if (cameraStream) {
       cameraStream.getTracks().forEach((track) => track.stop());
@@ -86,13 +87,13 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
   };
 
   const capturePhoto = () => {
-    if (!videoRef.current) {
-      console.warn("capturePhoto called but videoRef.current is null");
+    if (!videoNodeRef.current) {
+      console.warn("capturePhoto called but videoNodeRef.current is null");
       return;
     }
     
     try {
-      const video = videoRef.current;
+      const video = videoNodeRef.current;
       
       // Check readyState
       if (video.readyState < 2) {
@@ -209,11 +210,11 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                   </button>
                 </div>
               ) : (
-                <div className="relative flex flex-col items-center">
+                <div className="flex flex-col items-center justify-center space-y-4 py-2 relative">
                   {/* Shutter Flash Animation Overlay */}
-                  {shutterFlash && <div className="shutter-flash rounded-2xl" />}
+                  {shutterFlash && <div className="shutter-flash rounded-2xl" style={{ zIndex: 40 }} />}
                   
-                  {/* Camera viewport (SQUARE & CENTERED - VERY COMPACT) */}
+                  {/* Camera viewport (SQUARE & CENTERED - 144px) */}
                   <div 
                     className="overflow-hidden bg-black"
                     style={{ 
@@ -227,7 +228,8 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                       isolation: 'isolate',
                       WebkitMaskImage: '-webkit-radial-gradient(white, black)',
                       transform: 'translate3d(0, 0, 0)',
-                      WebkitTransform: 'translate3d(0, 0, 0)'
+                      WebkitTransform: 'translate3d(0, 0, 0)',
+                      zIndex: 10
                     }}
                   >
                     {cameraStream ? (
@@ -259,18 +261,21 @@ export default function SearchPanel({ onSearch, faceApi, photos }) {
                     <div className="absolute inset-3 rounded-xl border border-dashed border-white/25 pointer-events-none" />
                   </div>
 
-                  <div className="flex flex-col items-center gap-2">
-                    <button
-                      onClick={capturePhoto}
-                      disabled={!cameraStream || !videoReady}
-                      className={`btn btn-primary mt-4 px-5 py-2 rounded-xl text-xs ${
-                        (!cameraStream || !videoReady) ? 'btn-disabled' : ''
-                      }`}
-                    >
-                      <Camera size={14} />
-                      Fotoğraf Çek
-                    </button>
-                  </div>
+                  {/* Fotoğraf Çek Butonu - En yüksek z-index ile kameranın hemen altında yer alır ve disabled durumunda videoReady'ye takılmaz */}
+                  <button
+                    onClick={capturePhoto}
+                    disabled={!cameraStream}
+                    className={`btn btn-primary px-6 py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 ${
+                      !cameraStream ? 'btn-disabled' : ''
+                    }`}
+                    style={{
+                      width: '144px',
+                      zIndex: 50
+                    }}
+                  >
+                    <Camera size={14} />
+                    Fotoğraf Çek
+                  </button>
                 </div>
               )}
             </div>
